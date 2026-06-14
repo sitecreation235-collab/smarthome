@@ -1,231 +1,275 @@
 "use client";
 
-import { useState } from "react";
-import { ArrowLeft, FileText, Download, TrendingUp, TrendingDown, Calendar, DollarSign, Zap } from "lucide-react";
-import Link from "next/link";
+import { useState, useMemo } from "react";
 import { useFirebaseData } from "@/lib/hooks";
-import { translations } from "@/lib/i18n";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend } from "recharts";
+import { TrendingUp, Calendar, Zap, Wallet } from "lucide-react";
+
+const formatDate = (timestamp: number) => {
+  const date = new Date(timestamp);
+  return date.toLocaleString("fr-FR", {
+    month: "short",
+    day: "numeric",
+    hour: "2-digit"
+  });
+};
+
+const getWeeklyData = (historique: any[], userSettings: any) => {
+  const now = Date.now();
+  const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+  const weekData = historique.filter(entry => entry.timestamp > oneWeekAgo);
+  
+  if (weekData.length === 0) return [];
+  
+  // Group by day
+  const dailyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
+  
+  weekData.forEach(entry => {
+    const dateKey = new Date(entry.timestamp).toISOString().split('T')[0];
+    if (!dailyData[dateKey]) {
+      dailyData[dateKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
+    }
+    dailyData[dateKey].totalPower += entry.puissance;
+    dailyData[dateKey].totalEnergy += entry.energie;
+    dailyData[dateKey].count += 1;
+  });
+  
+  return Object.entries(dailyData).map(([dateKey, data]) => {
+    const date = new Date(dateKey);
+    return {
+      date: `${date.getDate()}/${date.getMonth() + 1}`,
+      puissance: Math.round(data.totalPower / data.count),
+      energie: Math.round(data.totalEnergy),
+      cout: Math.round(data.totalEnergy * userSettings.tarif_kwh)
+    };
+  });
+};
+
+const getMonthlyData = (historique: any[], userSettings: any) => {
+  const now = Date.now();
+  const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+  const monthData = historique.filter(entry => entry.timestamp > oneMonthAgo);
+  
+  if (monthData.length === 0) return [];
+  
+  // Group by week (simplified: every 7 days)
+  const weeklyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
+  
+  monthData.forEach(entry => {
+    const weekNum = Math.floor((entry.timestamp - oneMonthAgo) / (7 * 24 * 60 * 60 * 1000));
+    const weekKey = `Semaine ${weekNum + 1}`;
+    if (!weeklyData[weekKey]) {
+      weeklyData[weekKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
+    }
+    weeklyData[weekKey].totalPower += entry.puissance;
+    weeklyData[weekKey].totalEnergy += entry.energie;
+    weeklyData[weekKey].count += 1;
+  });
+  
+  return Object.entries(weeklyData).map(([weekKey, data]) => ({
+    semaine: weekKey,
+    puissance: Math.round(data.totalPower / data.count),
+    energie: Math.round(data.totalEnergy),
+    cout: Math.round(data.totalEnergy * userSettings.tarif_kwh)
+  }));
+};
 
 export default function ReportsPage() {
-  const { historique, etatActuel, loading, userSettings } = useFirebaseData();
-  const [periode, setPeriode] = useState<"semaine" | "mois">("mois");
-  const t = translations[userSettings.language];
-
-  const calculerStats = () => {
-    if (historique.length < 2) {
-      return {
-        consoTotal: 0,
-        coutTotal: 0,
-        puissanceMax: 0,
-        puissanceMoyenne: 0,
-        evolution: 0
-      };
-    }
-
-    const now = Date.now() / 1000;
-    const cutoff = periode === "semaine" ? now - 7 * 24 * 60 * 60 : now - 30 * 24 * 60 * 60;
-    const periodeData = historique.filter(entry => entry.timestamp >= cutoff);
-
-    if (periodeData.length === 0) {
-      return {
-        consoTotal: etatActuel.energie,
-        coutTotal: etatActuel.energie * userSettings.tarif_kwh,
-        puissanceMax: etatActuel.puissance,
-        puissanceMoyenne: etatActuel.puissance,
-        evolution: 0
-      };
-    }
-
-    const puissances = periodeData.map(entry => entry.puissance);
-    const consoTotal = periodeData[periodeData.length - 1].energie - periodeData[0].energie;
-    const coutTotal = consoTotal * userSettings.tarif_kwh;
-    const puissanceMax = Math.max(...puissances);
-    const puissanceMoyenne = puissances.reduce((a, b) => a + b, 0) / puissances.length;
-    const evolution = periodeData.length > 1 ? ((puissances[puissances.length - 1] - puissances[0]) / puissances[0]) * 100 : 0;
-
-    return {
-      consoTotal: Math.max(consoTotal, etatActuel.energie),
-      coutTotal: Math.max(coutTotal, etatActuel.energie * userSettings.tarif_kwh),
-      puissanceMax,
-      puissanceMoyenne,
-      evolution
-    };
-  };
-
-  const stats = calculerStats();
+  const { historique, userSettings, loading } = useFirebaseData();
+  const [period, setPeriod] = useState<"week" | "month">("week");
 
   if (loading) {
     return (
       <div className={`min-h-screen flex items-center justify-center transition-colors duration-500 ${userSettings.theme === "sombre" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-black" : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50"}`}>
         <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500"></div>
-          <p className={`text-lg animate-pulse ${userSettings.theme === "sombre" ? "text-gray-400" : "text-gray-600"}`}>
-            {userSettings.language === "fr" ? "Chargement..." : "Loading..."}
-          </p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 shadow-lg shadow-blue-500/30"></div>
+          <p className={`text-lg font-medium animate-pulse ${userSettings.theme === "sombre" ? "text-blue-300" : "text-blue-600"}`}>Chargement...</p>
         </div>
       </div>
     );
   }
 
-  const exporterCSV = () => {
-    const headers = userSettings.language === "fr" 
-      ? ["Date", "Heure", "Puissance (W)", "Énergie (kWh)", "Coût (FCFA)"]
-      : ["Date", "Time", "Power (W)", "Energy (kWh)", "Cost (FCFA)"];
-    const rows = historique.map(entry => {
-      const date = new Date(entry.timestamp * 1000);
-      return [
-        date.toLocaleDateString(userSettings.language === "fr" ? "fr-FR" : "en-US"),
-        date.toLocaleTimeString(userSettings.language === "fr" ? "fr-FR" : "en-US"),
-        entry.puissance.toFixed(1),
-        entry.energie.toFixed(2),
-        entry.cout_cumule.toFixed(0)
-      ];
-    });
+  const bgClass = userSettings.theme === "sombre" ? "bg-gray-900 text-white" : "bg-white text-gray-900";
+  const cardClass = userSettings.theme === "sombre" ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200";
+  const textMutedClass = userSettings.theme === "sombre" ? "text-gray-400" : "text-gray-500";
+  
+  const weekData = useMemo(() => getWeeklyData(historique, userSettings), [historique, userSettings]);
+  const monthData = useMemo(() => getMonthlyData(historique, userSettings), [historique, userSettings]);
+  const currentData = period === "week" ? weekData : monthData;
 
-    const csvContent = [headers.join(","), ...rows.map(row => row.join(","))].join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", `${userSettings.language === "fr" ? "rapport_energetique" : "energy_report"}_${new Date().toISOString().split("T")[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const cardBg = userSettings.theme === "sombre"
-    ? "bg-gradient-to-br from-gray-800/60 to-gray-900/60 backdrop-blur-2xl border border-gray-700/50"
-    : "bg-gradient-to-br from-white/60 to-purple-50/60 backdrop-blur-2xl border border-white/50";
-  const textClass = userSettings.theme === "sombre" ? "text-white" : "text-gray-800";
-  const textMutedClass = userSettings.theme === "sombre" ? "text-gray-400" : "text-gray-600";
-  const buttonBg = userSettings.theme === "sombre" ? "bg-gray-800/50" : "bg-white/50";
+  // Calculate totals
+  const totals = useMemo(() => {
+    if (currentData.length === 0) return { avgPower: 0, totalEnergy: 0, totalCost: 0 };
+    
+    const avgPower = Math.round(currentData.reduce((sum, d) => sum + (d.puissance || 0), 0) / currentData.length);
+    const totalEnergy = currentData.reduce((sum, d) => sum + (d.energie || 0), 0);
+    const totalCost = currentData.reduce((sum, d) => sum + (d.cout || 0), 0);
+    
+    return { avgPower, totalEnergy, totalCost };
+  }, [currentData]);
 
   return (
-    <div className="min-h-screen p-4 md:p-8 max-w-6xl mx-auto pb-24 md:pb-8">
-      {/* Back Button */}
-      <Link
-        href="/"
-        className={`inline-flex items-center gap-2 mb-8 transition-all duration-200 group ${textMutedClass} hover:${textClass}`}
-      >
-        <div className={`p-2 ${buttonBg} rounded-xl group-hover:${userSettings.theme === "sombre" ? "bg-gray-700/50" : "bg-white/70"} transition-colors`}>
-          <ArrowLeft className="w-5 h-5" />
-        </div>
-        <span className="font-medium">{t.nav.home}</span>
-      </Link>
-
-      {/* Header */}
-      <header className="mb-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-3 mb-2">
-            <FileText className="w-8 h-8 text-green-400" />
-            <h1 className={`text-3xl md:text-4xl font-bold bg-gradient-to-r ${userSettings.theme === "sombre" ? "from-white via-green-200 to-emerald-400" : "from-green-600 via-emerald-600 to-teal-700"} bg-clip-text text-transparent`}>
-              {t.reports.title}
-            </h1>
+    <div className={`min-h-screen ${userSettings.theme === "sombre" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-black" : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50"} pt-4 md:pt-24 pb-24 md:pb-8 px-4 transition-colors duration-500`}>
+      <div className="max-w-6xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+          <div>
+            <h1 className="text-3xl font-bold bg-gradient-to-r from-blue-500 to-indigo-600 bg-clip-text text-transparent">Rapports</h1>
+            <p className={`text-lg ${textMutedClass}`}>Analysez votre consommation d'énergie.</p>
           </div>
-
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className={`flex gap-2 p-1 ${buttonBg} rounded-2xl`}>
-              <button
-                onClick={() => setPeriode("semaine")}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  periode === "semaine"
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-600/30"
-                    : `${textMutedClass} hover:${textClass} hover:${userSettings.theme === "sombre" ? "bg-gray-700/50" : "bg-white/50"}`
-                }`}
-              >
-                {t.reports.thisWeek}
-              </button>
-              <button
-                onClick={() => setPeriode("mois")}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-200 ${
-                  periode === "mois"
-                    ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-600/30"
-                    : `${textMutedClass} hover:${textClass} hover:${userSettings.theme === "sombre" ? "bg-gray-700/50" : "bg-white/50"}`
-                }`}
-              >
-                {t.reports.thisMonth}
-              </button>
-            </div>
-
+          
+          <div className="flex gap-2 p-1 rounded-xl bg-gray-800/30 border border-gray-700/30">
             <button
-              onClick={exporterCSV}
-              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl font-semibold shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 transition-all duration-200"
+              onClick={() => setPeriod("week")}
+              className={`px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                period === "week"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+                  : `text-gray-400 hover:text-white hover:bg-gray-700/30`
+              }`}
             >
-              <Download className="w-4 h-4" />
-              {t.reports.export}
+              <Calendar className="inline w-4 h-4 mr-2" />
+              Hebdo
+            </button>
+            <button
+              onClick={() => setPeriod("month")}
+              className={`px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
+                period === "month"
+                  ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
+                  : `text-gray-400 hover:text-white hover:bg-gray-700/30`
+              }`}
+            >
+              <Calendar className="inline w-4 h-4 mr-2" />
+              Mensuel
             </button>
           </div>
         </div>
-        <p className={textMutedClass}>{userSettings.language === "fr" ? "Analyse détaillée de votre consommation" : "Detailed analysis of your consumption"}</p>
-      </header>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <div className={`${cardBg} rounded-3xl p-6`}>
-          <div className="p-3 bg-gradient-to-br from-purple-600/20 to-violet-600/20 rounded-2xl w-fit mb-4">
-            <TrendingUp className="w-8 h-8 text-purple-400" />
-          </div>
-          <p className={`text-xs mb-1 font-medium uppercase tracking-wider ${textMutedClass}`}>{userSettings.language === "fr" ? "Consommation" : "Consumption"}</p>
-          <p className={`text-3xl font-bold ${textClass}`}>{stats.consoTotal.toFixed(2)} <span className="text-lg font-normal text-gray-500">kWh</span></p>
-        </div>
-
-        <div className={`${cardBg} rounded-3xl p-6`}>
-          <div className="p-3 bg-gradient-to-br from-green-600/20 to-emerald-600/20 rounded-2xl w-fit mb-4">
-            <DollarSign className="w-8 h-8 text-green-400" />
-          </div>
-          <p className={`text-xs mb-1 font-medium uppercase tracking-wider ${textMutedClass}`}>{userSettings.language === "fr" ? "Coût Total" : "Total Cost"}</p>
-          <p className={`text-3xl font-bold ${textClass}`}>{Math.round(stats.coutTotal).toLocaleString()} <span className="text-lg font-normal text-gray-500">FCFA</span></p>
-        </div>
-
-        <div className={`${cardBg} rounded-3xl p-6`}>
-          <div className="p-3 bg-gradient-to-br from-orange-600/20 to-yellow-600/20 rounded-2xl w-fit mb-4">
-            <Zap className="w-8 h-8 text-orange-400" />
-          </div>
-          <p className={`text-xs mb-1 font-medium uppercase tracking-wider ${textMutedClass}`}>{userSettings.language === "fr" ? "Puissance Max" : "Max Power"}</p>
-          <p className={`text-3xl font-bold ${textClass}`}>{stats.puissanceMax.toFixed(0)} <span className="text-lg font-normal text-gray-500">W</span></p>
-        </div>
-
-        <div className={`${cardBg} rounded-3xl p-6`}>
-          <div className="p-3 bg-gradient-to-br from-blue-600/20 to-cyan-600/20 rounded-2xl w-fit mb-4">
-            <TrendingDown className="w-8 h-8 text-blue-400" />
-          </div>
-          <p className={`text-xs mb-1 font-medium uppercase tracking-wider ${textMutedClass}`}>{userSettings.language === "fr" ? "Évolution" : "Evolution"}</p>
-          <p className={`text-3xl font-bold ${stats.evolution > 0 ? "text-red-400" : "text-green-400"}`}>
-            {stats.evolution.toFixed(1)}%
-          </p>
-        </div>
-      </div>
-
-      {/* Résumé du Rapport */}
-      <div className={`${cardBg} rounded-3xl p-6`}>
-        <div className="flex items-center gap-3 mb-6">
-          <Calendar className="w-6 h-6 text-blue-400" />
-          <h2 className={`text-xl font-semibold ${textClass}`}>{userSettings.language === "fr" ? "Résumé de la période" : "Period summary"}</h2>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="space-y-4">
-            <div className={`flex justify-between items-center py-3 border-b ${userSettings.theme === "sombre" ? "border-gray-700/30" : "border-gray-200"}`}>
-              <span className={textMutedClass}>{t.reports.consumptionAvg}</span>
-              <span className={`${textClass} font-medium`}>{(stats.consoTotal / (periode === "semaine" ? 7 : 30)).toFixed(2)} kWh</span>
-            </div>
-            <div className={`flex justify-between items-center py-3 border-b ${userSettings.theme === "sombre" ? "border-gray-700/30" : "border-gray-200"}`}>
-              <span className={textMutedClass}>{t.reports.costAvg}</span>
-              <span className={`${textClass} font-medium`}>{Math.round(stats.coutTotal / (periode === "semaine" ? 7 : 30)).toLocaleString()} FCFA</span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <span className={textMutedClass}>{t.reports.avgPower}</span>
-              <span className={`${textClass} font-medium`}>{stats.puissanceMoyenne.toFixed(0)} W</span>
+        {/* Stats cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${cardClass} border-blue-500/30`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-blue-500/20 rounded-xl">
+                <Zap className="w-6 h-6 text-blue-500" />
+              </div>
+              <div>
+                <p className={`text-sm ${textMutedClass}`}>Puissance moyenne</p>
+                <h3 className="text-2xl font-bold">{totals.avgPower} W</h3>
+              </div>
             </div>
           </div>
-
-          <div className="bg-gradient-to-br from-green-900/20 to-emerald-900/20 border border-green-700/30 rounded-2xl p-6">
-            <h3 className="text-lg font-semibold text-green-300 mb-2">{t.reports.tip}</h3>
-            <p className={`text-sm ${userSettings.theme === "sombre" ? "text-gray-300" : "text-gray-600"}`}>
-              {t.reports.tipText}
-            </p>
+          
+          <div className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${cardClass} border-purple-500/30`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-purple-500/20 rounded-xl">
+                <TrendingUp className="w-6 h-6 text-purple-500" />
+              </div>
+              <div>
+                <p className={`text-sm ${textMutedClass}`}>Énergie totale</p>
+                <h3 className="text-2xl font-bold">{totals.totalEnergy} kWh</h3>
+              </div>
+            </div>
+          </div>
+          
+          <div className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${cardClass} border-orange-500/30`}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 bg-orange-500/20 rounded-xl">
+                <Wallet className="w-6 h-6 text-orange-500" />
+              </div>
+              <div>
+                <p className={`text-sm ${textMutedClass}`}>Coût total</p>
+                <h3 className="text-2xl font-bold">{totals.totalCost.toLocaleString()} FCFA</h3>
+              </div>
+            </div>
           </div>
         </div>
+
+        {currentData.length === 0 ? (
+          <div className={`p-12 rounded-3xl border-2 border-dashed text-center ${cardClass}`}>
+            <Calendar className="w-16 h-16 mx-auto mb-4 text-gray-400" />
+            <h2 className="text-xl font-semibold mb-2">Pas de données</h2>
+            <p className={textMutedClass}>Commencez à utiliser le système pour générer des rapports.</p>
+          </div>
+        ) : (
+          <>
+            {/* Power chart */}
+            <div className={`p-6 rounded-3xl border-2 mb-8 ${cardClass}`}>
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Zap className="text-blue-500" />
+                Évolution de la puissance
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={currentData}>
+                    <defs>
+                      <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke={userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"} />
+                    <XAxis 
+                      dataKey={period === "week" ? "date" : "semaine"} 
+                      stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
+                    />
+                    <YAxis 
+                      stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
+                      unit=" W"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: userSettings.theme === "sombre" ? "#1f2937" : "#ffffff", 
+                        border: `1px solid ${userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"}`,
+                        borderRadius: "12px"
+                      }} 
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="puissance" 
+                      stroke="#3b82f6" 
+                      strokeWidth={3}
+                      fillOpacity={1} 
+                      fill="url(#colorPower)" 
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Cost chart */}
+            <div className={`p-6 rounded-3xl border-2 ${cardClass}`}>
+              <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
+                <Wallet className="text-orange-500" />
+                Évolution du coût
+              </h3>
+              <div className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={currentData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"} />
+                    <XAxis 
+                      dataKey={period === "week" ? "date" : "semaine"} 
+                      stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
+                    />
+                    <YAxis 
+                      stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
+                      unit=" FCFA"
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: userSettings.theme === "sombre" ? "#1f2937" : "#ffffff", 
+                        border: `1px solid ${userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"}`,
+                        borderRadius: "12px"
+                      }} 
+                    />
+                    <Bar 
+                      dataKey="cout" 
+                      fill="#f59e0b" 
+                      radius={[8, 8, 0, 0]} 
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

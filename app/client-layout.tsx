@@ -4,7 +4,7 @@ import "./globals.css";
 import BottomNavigation from "@/components/BottomNavigation";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Settings, Languages, Sun, Moon, Home, BarChart3, FileText, LogOut } from "lucide-react";
+import { Settings, Languages, Sun, Moon, Home, BarChart3, FileText, LogOut, AlertCircle } from "lucide-react";
 import { useFirebaseData, updateSettings } from "@/lib/hooks";
 import { translations } from "@/lib/i18n";
 import { useEffect } from "react";
@@ -80,19 +80,23 @@ export default function ClientLayout({
                 Smart Energy
               </Link>
               <div className="flex items-center gap-8">
-                <Link href="/" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
-                  <Home className="w-5 h-5" />
-                  {t.nav.home}
-                </Link>
-                <Link href="/analytics" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
-                  <BarChart3 className="w-5 h-5" />
-                  {t.nav.analytics}
-                </Link>
-                <Link href="/reports" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
-                  <FileText className="w-5 h-5" />
-                  {t.nav.reports}
-                </Link>
-              </div>
+              <Link href="/" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                <Home className="w-5 h-5" />
+                {t.nav.home}
+              </Link>
+              <Link href="/analytics" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                <BarChart3 className="w-5 h-5" />
+                {t.nav.analytics}
+              </Link>
+              <Link href="/reports" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                <FileText className="w-5 h-5" />
+                {t.nav.reports}
+              </Link>
+              <Link href="/alert-history" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                <AlertCircle className="w-5 h-5" />
+                Historique
+              </Link>
+            </div>
             </div>
             <div className="flex items-center gap-4">
               {/* User Info */}

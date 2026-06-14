@@ -55,6 +55,20 @@ export interface HistoriqueEntry {
   cout_cumule: number;
 }
 
+export interface AlertHistoryEntry {
+  id: string;
+  type: "lamp" | "power";
+  title: string;
+  message: string;
+  timestamp: number;
+  action_taken?: string; // "turned_off" | "auto_mode" | "dismissed" | "none"
+  metadata?: {
+    roomName?: string;
+    totalPower?: number;
+    devices?: string[];
+  };
+}
+
 export type Language = "fr" | "en";
 
 export interface UserSettings {

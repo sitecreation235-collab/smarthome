@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { Zap, Droplets, Thermometer, Wifi, WifiOff, Lightbulb, Snowflake, TrendingUp, AlertCircle, LightbulbIcon, Tv, Refrigerator, Microwave, Settings2, Tv2 } from "lucide-react";
-import { useFirebaseData, updateControles } from "@/lib/hooks";
+import { useFirebaseData, updateControles, logAlert } from "@/lib/hooks";
 import { Room, Device } from "@/lib/types";
 import { translations } from "@/lib/i18n";
 import LampNotification from "@/components/LampNotification";
@@ -189,6 +189,12 @@ export default function Home() {
               </div>
               <a href="https://smarthome-demo.vercel.app/" class="cta">Aller sur le dashboard</a>
             `;
+            logAlert({
+              type: "lamp",
+              title: "Lampe allumée en mode manuel",
+              message: `La lampe du ${room.name} est allumée depuis 10 secondes en mode manuel.`,
+              metadata: { roomName: room.name }
+            });
             sendAlertEmail(
               "🔔 Alerte : Lampe allumée depuis 10 secondes",
               lampHtml,
@@ -284,6 +290,15 @@ export default function Home() {
         </div>
         <a href="https://smarthome-demo.vercel.app/" class="cta">Aller sur le dashboard</a>
       `;
+      logAlert({
+        type: "power",
+        title: "Dépassement de la consommation",
+        message: `Votre consommation dépasse 1500 W (actuellement: ${totalPower} W).`,
+        metadata: { 
+          totalPower,
+          devices: active.map(ad => `${ad.device.name} (${ad.roomName})`)
+        }
+      });
       sendAlertEmail(
         "⚠️ Alerte : Dépassement de la consommation de puissance",
         powerHtml,

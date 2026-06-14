@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ref, onValue, update, get } from "firebase/database";
+import { ref, onValue, update, get, push } from "firebase/database";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { db, auth } from "./firebase";
-import type { EtatActuel, Controles, HistoriqueEntry, UserSettings } from "./types";
+import type { EtatActuel, Controles, HistoriqueEntry, UserSettings, AlertHistoryEntry } from "./types";
 
 // Définition des pièces et appareils (doit correspondre à la page)
 const ROOMS = [
@@ -118,6 +118,7 @@ export function useFirebaseData() {
   const [etatActuel, setEtatActuel] = useState<EtatActuel | null>(null);
   const [controles, setControles] = useState<Controles | null>(null);
   const [historique, setHistorique] = useState<HistoriqueEntry[]>([]);
+  const [alertHistory, setAlertHistory] = useState<AlertHistoryEntry[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
@@ -174,6 +175,7 @@ export function useFirebaseData() {
     const etatActuelRef = ref(db, "etat_actuel");
     const controlesRef = ref(db, "controles");
     const historiqueRef = ref(db, "historique");
+    const alertHistoryRef = ref(db, "alert_history");
     const userSettingsRef = ref(db, "user_settings");
 
     const unsub1 = onValue(etatActuelRef, (snapshot) => {
@@ -195,7 +197,18 @@ export function useFirebaseData() {
       }
     });
 
-    const unsub4 = onValue(userSettingsRef, (snapshot) => {
+    const unsub4 = onValue(alertHistoryRef, (snapshot) => {
+      const data = snapshot.val();
+      if (data) {
+        const entries = Object.entries(data).map(([id, entry]) => ({
+          id,
+          ...(entry as Omit<AlertHistoryEntry, "id">)
+        })) as AlertHistoryEntry[];
+        setAlertHistory(entries.sort((a, b) => b.timestamp - a.timestamp));
+      }
+    });
+
+    const unsub5 = onValue(userSettingsRef, (snapshot) => {
       const val = snapshot.val();
       setUserSettings(val ? { ...defaultUserSettings, ...val } : defaultUserSettings);
     });
@@ -206,6 +219,7 @@ export function useFirebaseData() {
       unsub2();
       unsub3();
       unsub4();
+      unsub5();
     };
   }, []);
 
@@ -213,7 +227,7 @@ export function useFirebaseData() {
   const safeControles = controles || defaultControles;
   const safeUserSettings = userSettings || defaultUserSettings;
 
-  return { etatActuel: safeEtatActuel, controles: safeControles, historique, userSettings: safeUserSettings, loading, user };
+  return { etatActuel: safeEtatActuel, controles: safeControles, historique, alertHistory, userSettings: safeUserSettings, loading, user };
 }
 
 export function updateControles(path: string, value: any) {
@@ -228,4 +242,18 @@ export function updateSettings(path: string, value: any) {
   const updates: Record<string, any> = {};
   updates[path] = value;
   update(settingsRef, updates);
+}
+
+export function logAlert(alert: Omit<AlertHistoryEntry, "id" | "timestamp">) {
+  const alertHistoryRef = ref(db, "alert_history");
+  const newAlert: Omit<AlertHistoryEntry, "id"> = {
+    ...alert,
+    timestamp: Date.now()
+  };
+  push(alertHistoryRef, newAlert);
+}
+
+export function updateAlertAction(alertId: string, actionTaken: string) {
+  const alertRef = ref(db, `alert_history/${alertId}`);
+  update(alertRef, { action_taken: actionTaken });
 }

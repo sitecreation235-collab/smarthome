@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, BarChart3, Settings, FileText } from "lucide-react";
+import { Home, BarChart3, Settings, FileText, AlertCircle } from "lucide-react";
 import { useFirebaseData } from "@/lib/hooks";
 import { translations } from "@/lib/i18n";
 
@@ -15,6 +15,7 @@ export default function BottomNavigation() {
     { href: "/", icon: Home, label: t.nav.home },
     { href: "/analytics", icon: BarChart3, label: t.nav.analytics },
     { href: "/reports", icon: FileText, label: t.nav.reports },
+    { href: "/alert-history", icon: AlertCircle, label: "Alertes" },
     { href: "/settings", icon: Settings, label: t.nav.settings },
   ];
 

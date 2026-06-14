@@ -9,12 +9,12 @@ import LampNotification from "@/components/LampNotification";
 import PowerAlertNotification from "@/components/PowerAlertNotification";
 
 // Fonction pour envoyer une alerte par email
-const sendAlertEmail = async (subject: string, text: string) => {
+const sendAlertEmail = async (subject: string, html: string, text: string) => {
   try {
     const response = await fetch("/api/send-alert", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ subject, text }),
+      body: JSON.stringify({ subject, html, text }),
     });
     
     if (!response.ok) {
@@ -181,8 +181,17 @@ export default function Home() {
               deviceId: lampDevice.id,
               timeOn: elapsed
             });
+            const lampHtml = `
+              <h2>🔔 Alerte Lampe</h2>
+              <p>La lampe du <strong>${room.name}</strong> est allumée depuis 10 secondes en mode manuel.</p>
+              <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+                <p style="color: #92400e; margin: 0; font-weight: 500;">💡 Pensez à l'éteindre pour économiser de l'énergie !</p>
+              </div>
+              <a href="https://smarthome-demo.vercel.app/" class="cta">Aller sur le dashboard</a>
+            `;
             sendAlertEmail(
               "🔔 Alerte : Lampe allumée depuis 10 secondes",
+              lampHtml,
               `Bonjour,\n\nLa lampe du ${room.name} est allumée depuis 10 secondes en mode manuel.\n\nPensez à l'éteindre pour économiser de l'énergie !\n\n- Smart Energy`
             );
           } else if (notification?.deviceId === lampDevice.id) {
@@ -249,8 +258,35 @@ export default function Home() {
     // Check if total power exceeds 1500 W
     if (totalPower > 1500 && active.length > 0 && !showPowerAlert) {
       setShowPowerAlert(true);
+      const devicesHtml = active.map((ad) => {
+        const icon = ad.device.type === "lamp" ? "💡" : ad.device.type === "ac" ? "❄️" : ad.device.type === "tv" ? "📺" : ad.device.type === "fridge" ? "🧊" : "🔌";
+        return `
+          <div class="device-item">
+            <div class="device-icon">${icon}</div>
+            <div class="device-details">
+              <div class="device-name">${ad.device.name}</div>
+              <div class="device-info">${ad.roomName} • ${ad.device.power_watts} W</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+      
+      const powerHtml = `
+        <h2>⚠️ Dépassement de Consommation</h2>
+        <div class="power-badge">⚡ ${totalPower} W</div>
+        <p>Votre consommation dépasse 1500 W !</p>
+        <div class="devices-list">
+          <h3 style="color: #1e293b; margin-bottom: 15px; font-size: 18px; font-weight: 600;">Appareils en cours d'utilisation</h3>
+          ${devicesHtml}
+        </div>
+        <div style="background: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+          <p style="color: #991b1b; margin: 0; font-weight: 500;">🔴 Pensez à éteindre certains appareils pour économiser de l'énergie !</p>
+        </div>
+        <a href="https://smarthome-demo.vercel.app/" class="cta">Aller sur le dashboard</a>
+      `;
       sendAlertEmail(
         "⚠️ Alerte : Dépassement de la consommation de puissance",
+        powerHtml,
         `Bonjour,\n\nVotre consommation totale dépasse 1500 W (actuellement: ${totalPower} W) !\n\nAppareils en cours d'utilisation :\n${active.map((ad) => `- ${ad.device.name} (${ad.roomName}) : ${ad.device.power_watts} W`).join('\n')}\n\nPensez à éteindre certains appareils pour économiser de l'énergie !\n\n- Smart Energy`
       );
     } else if (totalPower <= 1500 && showPowerAlert) {

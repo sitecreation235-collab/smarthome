@@ -86,7 +86,12 @@ export const translations = {
       title: "Alerte",
       lampOnMessage: "La lampe du {room} est allumée depuis {time}s !",
       turnOff: "Éteindre la lampe",
-      switchToAuto: "Passer en mode AUTO"
+      switchToAuto: "Passer en mode AUTO",
+      powerAlertTitle: "Alerte Consommation",
+      powerAlertMessage: "Vous avez dépassé le seuil de consommation de 1500 W !",
+      selectDevicesToTurnOff: "Sélectionnez les appareils à éteindre",
+      turnOffSelected: "Éteindre les appareils sélectionnés",
+      noDevicesSelected: "Veuillez sélectionner au moins un appareil"
     }
   },
   en: {
@@ -174,7 +179,12 @@ export const translations = {
       title: "Alert",
       lampOnMessage: "The {room} lamp has been on for {time}s!",
       turnOff: "Turn off lamp",
-      switchToAuto: "Switch to AUTO mode"
+      switchToAuto: "Switch to AUTO mode",
+      powerAlertTitle: "Power Alert",
+      powerAlertMessage: "You have exceeded the 1500 W power threshold!",
+      selectDevicesToTurnOff: "Select devices to turn off",
+      turnOffSelected: "Turn off selected devices",
+      noDevicesSelected: "Please select at least one device"
     }
   }
 };

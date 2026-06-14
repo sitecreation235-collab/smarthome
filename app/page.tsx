@@ -6,6 +6,7 @@ import { useFirebaseData, updateControles } from "@/lib/hooks";
 import { Room, Device } from "@/lib/types";
 import { translations } from "@/lib/i18n";
 import LampNotification from "@/components/LampNotification";
+import PowerAlertNotification from "@/components/PowerAlertNotification";
 
 // Définition des pièces et appareils
 const ROOMS: Room[] = [
@@ -54,13 +55,37 @@ interface NotificationData {
   timeOn: number;
 }
 
+interface ActiveDevice {
+  device: Device;
+  roomName: string;
+}
+
 export default function Home() {
   const { etatActuel, controles, userSettings, loading } = useFirebaseData();
   const [isOnline, setIsOnline] = useState(false);
   const [activeTab, setActiveTab] = useState("salon");
   const [notification, setNotification] = useState<NotificationData | null>(null);
+  const [showPowerAlert, setShowPowerAlert] = useState(false);
+  const [activeDevices, setActiveDevices] = useState<ActiveDevice[]>([]);
   const lampOnTimeRef = useRef<Record<string, { startTime: number; notified: boolean }>>({});
   const t = translations[userSettings.language];
+
+  // Calcul de la consommation totale (réelle + simulée)
+  const calculateTotalPower = () => {
+    let total = etatActuel.puissance;
+    ROOMS.forEach(room => {
+      room.devices.forEach(device => {
+        if (!device.is_real) {
+          const deviceOn = controles.forces[device.id] ?? device.is_on;
+          if (deviceOn) total += device.power_watts;
+        }
+      });
+    });
+    return total;
+  };
+
+  const totalPower = calculateTotalPower();
+  const coutTotal = etatActuel ? Math.round(etatActuel.energie * userSettings.tarif_kwh) : 0;
 
   useEffect(() => {
     if (etatActuel?.last_seen) {
@@ -140,22 +165,29 @@ export default function Home() {
     return () => clearInterval(intervalId);
   }, [etatActuel, controles, loading, notification]);
 
-  // Calcul de la consommation totale (réelle + simulée)
-  const calculateTotalPower = () => {
-    let total = etatActuel.puissance;
-    ROOMS.forEach(room => {
-      room.devices.forEach(device => {
-        if (!device.is_real) {
-          const deviceOn = controles.forces[device.id] ?? device.is_on;
-          if (deviceOn) total += device.power_watts;
+  // Power alert logic
+  useEffect(() => {
+    if (loading) return;
+
+    // Collect all active devices
+    const active: ActiveDevice[] = [];
+    ROOMS.forEach((room) => {
+      room.devices.forEach((device) => {
+        const isOn = getDeviceState(device);
+        if (isOn) {
+          active.push({ device, roomName: room.name });
         }
       });
     });
-    return total;
-  };
+    setActiveDevices(active);
 
-  const totalPower = calculateTotalPower();
-  const coutTotal = etatActuel ? Math.round(etatActuel.energie * userSettings.tarif_kwh) : 0;
+    // Check if total power exceeds 1500 W
+    if (totalPower > 1500 && active.length > 0 && !showPowerAlert) {
+      setShowPowerAlert(true);
+    } else if (totalPower <= 1500 && showPowerAlert) {
+      setShowPowerAlert(false);
+    }
+  }, [totalPower, etatActuel, controles, loading]);
 
   // Fonction pour obtenir l'état d'un appareil
   const getDeviceState = (device: Device) => {
@@ -237,6 +269,12 @@ export default function Home() {
         notification={notification} 
         onClose={() => setNotification(null)} 
       />
+      {showPowerAlert && (
+        <PowerAlertNotification
+          activeDevices={activeDevices}
+          onClose={() => setShowPowerAlert(false)}
+        />
+      )}
       <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">

@@ -176,7 +176,7 @@ export default function SettingsPage() {
               className={`p-4 rounded-2xl border transition-all duration-300 ${
                 userSettings.theme === "sombre"
                   ? "bg-gradient-to-br from-gray-700/80 to-gray-800/80 border-indigo-500/50"
-                  : `${userSettings.theme === "sombre" ? "bg-gray-800/30 border-gray-700/30 hover:bg-gray-700/50" : "bg-white/30 border-gray-200 hover:bg-white/50"}`
+                  : "bg-white/30 border-gray-200 hover:bg-white/50"
               }`}
             >
               <Moon className="w-8 h-8 mx-auto mb-2 text-indigo-400" />
@@ -189,7 +189,7 @@ export default function SettingsPage() {
               className={`p-4 rounded-2xl border transition-all duration-300 ${
                 userSettings.theme === "clair"
                   ? "bg-gradient-to-br from-yellow-900/30 to-orange-900/30 border-yellow-500/50"
-                  : `${userSettings.theme === "sombre" ? "bg-gray-800/30 border-gray-700/30 hover:bg-gray-700/50" : "bg-white/30 border-gray-200 hover:bg-white/50"}`
+                  : "bg-gray-800/30 border-gray-700/30 hover:bg-gray-700/50"
               }`}
             >
               <Sun className="w-8 h-8 mx-auto mb-2 text-yellow-400" />

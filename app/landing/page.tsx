@@ -45,14 +45,20 @@ export default function LandingPage() {
       }
       router.push("/");
     } catch (err: any) {
+      console.error("Erreur d'authentification Firebase :", err.code, err.message);
+      
       if (err.code === "auth/invalid-credential") {
         setError("Email ou mot de passe incorrect");
       } else if (err.code === "auth/email-already-in-use") {
         setError("Cet email est déjà utilisé");
       } else if (err.code === "auth/weak-password") {
         setError("Mot de passe trop faible (6 caractères minimum)");
+      } else if (err.code === "auth/invalid-email") {
+        setError("Format d'email invalide");
+      } else if (err.code === "auth/operation-not-allowed") {
+        setError("L'authentification par email/mot de passe n'est pas activée dans Firebase");
       } else {
-        setError("Une erreur est survenue, veuillez réessayer");
+        setError(`Erreur (${err.code}): ${err.message}`);
       }
     } finally {
       setLoading(false);
@@ -68,7 +74,8 @@ export default function LandingPage() {
       await sendPasswordResetEmail(auth, email);
       setError("Email de réinitialisation envoyé ! Vérifiez votre boîte mail");
     } catch (err: any) {
-      setError("Erreur lors de l'envoi de l'email");
+      console.error("Erreur mot de passe oublié :", err.code, err.message);
+      setError(`Erreur (${err.code}): ${err.message}`);
     }
   };
 

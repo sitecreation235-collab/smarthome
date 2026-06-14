@@ -3,18 +3,33 @@
 import "./globals.css";
 import BottomNavigation from "@/components/BottomNavigation";
 import Link from "next/link";
-import { Settings, Languages, Sun, Moon, Home, BarChart3, FileText } from "lucide-react";
+import { usePathname, useRouter } from "next/navigation";
+import { Settings, Languages, Sun, Moon, Home, BarChart3, FileText, LogOut } from "lucide-react";
 import { useFirebaseData, updateSettings } from "@/lib/hooks";
 import { translations } from "@/lib/i18n";
 import { useEffect } from "react";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase";
 
 export default function ClientLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const { userSettings } = useFirebaseData();
+  const { userSettings, user, loading } = useFirebaseData();
   const t = translations[userSettings.language];
+  const pathname = usePathname();
+  const router = useRouter();
+
+  // Gérer la redirection si non connecté
+  useEffect(() => {
+    if (!loading && !user && pathname !== "/landing") {
+      router.push("/landing");
+    }
+    if (!loading && user && pathname === "/landing") {
+      router.push("/");
+    }
+  }, [user, loading, pathname, router]);
 
   // Apply theme to document
   useEffect(() => {
@@ -24,6 +39,31 @@ export default function ClientLayout({
       document.documentElement.classList.remove("dark");
     }
   }, [userSettings.theme]);
+
+  // Si on est sur la landing page, on n'affiche pas le layout
+  if (pathname === "/landing") {
+    return (
+      <html lang={userSettings.language}>
+        <body className="min-h-screen">
+          {children}
+        </body>
+      </html>
+    );
+  }
+
+  // Afficher un chargement si loading
+  if (loading || !user) {
+    return (
+      <html lang={userSettings.language}>
+        <body className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-black flex items-center justify-center">
+          <div className="text-center">
+            <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-gray-400">Chargement...</p>
+          </div>
+        </body>
+      </html>
+    );
+  }
 
   const bgClass = userSettings.theme === "sombre"
     ? "bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 text-white"
@@ -55,6 +95,13 @@ export default function ClientLayout({
               </div>
             </div>
             <div className="flex items-center gap-4">
+              {/* User Info */}
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full flex items-center justify-center">
+                  <span className="font-bold text-white">{user.email?.[0].toUpperCase()}</span>
+                </div>
+                <span className="text-gray-300 text-sm hidden lg:block">{user.email}</span>
+              </div>
               {/* Language Switcher */}
               <button
                 onClick={() => updateSettings("language", userSettings.language === "fr" ? "en" : "fr")}
@@ -68,6 +115,14 @@ export default function ClientLayout({
                 className="p-3 bg-gray-800/50 rounded-2xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-300"
               >
                 {userSettings.theme === "sombre" ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+              </button>
+              {/* Logout Button */}
+              <button
+                onClick={() => signOut(auth)}
+                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-red-600 to-orange-600 text-white rounded-2xl font-semibold shadow-lg shadow-red-600/30 hover:shadow-red-600/40 transition-all duration-300"
+              >
+                <LogOut className="w-5 h-5" />
+                Déconnexion
               </button>
               {/* Settings Link */}
               <Link

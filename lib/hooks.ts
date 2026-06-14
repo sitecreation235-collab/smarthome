@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ref, onValue, update, get } from "firebase/database";
-import { db } from "./firebase";
+import { onAuthStateChanged, User } from "firebase/auth";
+import { db, auth } from "./firebase";
 import type { EtatActuel, Controles, HistoriqueEntry, UserSettings } from "./types";
 
 // Définition des pièces et appareils (doit correspondre à la page)
@@ -118,6 +119,7 @@ export function useFirebaseData() {
   const [controles, setControles] = useState<Controles | null>(null);
   const [historique, setHistorique] = useState<HistoriqueEntry[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings | null>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   const defaultEtatActuel: EtatActuel = {
@@ -161,6 +163,11 @@ export function useFirebaseData() {
   };
 
   useEffect(() => {
+    // Écouter les changements d'authentification
+    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+    });
+
     // Initialiser les données Firebase d'abord
     initializeFirebaseData();
 
@@ -194,6 +201,7 @@ export function useFirebaseData() {
     });
 
     return () => {
+      unsubscribeAuth();
       unsub1();
       unsub2();
       unsub3();
@@ -205,7 +213,7 @@ export function useFirebaseData() {
   const safeControles = controles || defaultControles;
   const safeUserSettings = userSettings || defaultUserSettings;
 
-  return { etatActuel: safeEtatActuel, controles: safeControles, historique, userSettings: safeUserSettings, loading };
+  return { etatActuel: safeEtatActuel, controles: safeControles, historique, userSettings: safeUserSettings, loading, user };
 }
 
 export function updateControles(path: string, value: any) {

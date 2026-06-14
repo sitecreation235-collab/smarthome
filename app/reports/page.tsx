@@ -2,76 +2,79 @@
 
 import { useState, useMemo } from "react";
 import { useFirebaseData } from "@/lib/hooks";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar, Legend } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } from "recharts";
 import { TrendingUp, Calendar, Zap, Wallet } from "lucide-react";
 
-const formatDate = (timestamp: number) => {
-  const date = new Date(timestamp);
-  return date.toLocaleString("fr-FR", {
-    month: "short",
-    day: "numeric",
-    hour: "2-digit"
-  });
-};
-
 const getWeeklyData = (historique: any[], userSettings: any) => {
-  const now = Date.now();
-  const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
-  const weekData = historique.filter(entry => entry.timestamp > oneWeekAgo);
-  
-  if (weekData.length === 0) return [];
-  
-  // Group by day
-  const dailyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
-  
-  weekData.forEach(entry => {
-    const dateKey = new Date(entry.timestamp).toISOString().split('T')[0];
-    if (!dailyData[dateKey]) {
-      dailyData[dateKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
-    }
-    dailyData[dateKey].totalPower += entry.puissance;
-    dailyData[dateKey].totalEnergy += entry.energie;
-    dailyData[dateKey].count += 1;
-  });
-  
-  return Object.entries(dailyData).map(([dateKey, data]) => {
-    const date = new Date(dateKey);
-    return {
-      date: `${date.getDate()}/${date.getMonth() + 1}`,
-      puissance: Math.round(data.totalPower / data.count),
-      energie: Math.round(data.totalEnergy),
-      cout: Math.round(data.totalEnergy * userSettings.tarif_kwh)
-    };
-  });
+  try {
+    const now = Date.now();
+    const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
+    const weekData = historique.filter(entry => entry && entry.timestamp > oneWeekAgo);
+    
+    if (weekData.length === 0) return [];
+    
+    // Group by day
+    const dailyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
+    
+    weekData.forEach(entry => {
+      if (!entry || !entry.timestamp) return;
+      const dateKey = new Date(entry.timestamp).toISOString().split('T')[0];
+      if (!dailyData[dateKey]) {
+        dailyData[dateKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
+      }
+      dailyData[dateKey].totalPower += (entry.puissance || 0);
+      dailyData[dateKey].totalEnergy += (entry.energie || 0);
+      dailyData[dateKey].count += 1;
+    });
+    
+    return Object.entries(dailyData).map(([dateKey, data]) => {
+      const date = new Date(dateKey);
+      return {
+        date: `${date.getDate()}/${date.getMonth() + 1}`,
+        puissance: data.count > 0 ? Math.round(data.totalPower / data.count) : 0,
+        energie: Math.round(data.totalEnergy),
+        cout: Math.round(data.totalEnergy * (userSettings?.tarif_kwh || 0))
+      };
+    });
+  } catch (e) {
+    console.error("Error in getWeeklyData:", e);
+    return [];
+  }
 };
 
 const getMonthlyData = (historique: any[], userSettings: any) => {
-  const now = Date.now();
-  const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
-  const monthData = historique.filter(entry => entry.timestamp > oneMonthAgo);
-  
-  if (monthData.length === 0) return [];
-  
-  // Group by week (simplified: every 7 days)
-  const weeklyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
-  
-  monthData.forEach(entry => {
-    const weekNum = Math.floor((entry.timestamp - oneMonthAgo) / (7 * 24 * 60 * 60 * 1000));
-    const weekKey = `Semaine ${weekNum + 1}`;
-    if (!weeklyData[weekKey]) {
-      weeklyData[weekKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
-    }
-    weeklyData[weekKey].totalPower += entry.puissance;
-    weeklyData[weekKey].totalEnergy += entry.energie;
-    weeklyData[weekKey].count += 1;
-  });
-  
-  return Object.entries(weeklyData).map(([weekKey, data]) => ({
-    semaine: weekKey,
-    puissance: Math.round(data.totalPower / data.count),
-    energie: Math.round(data.totalEnergy),
-    cout: Math.round(data.totalEnergy * userSettings.tarif_kwh)
-  }));
+  try {
+    const now = Date.now();
+    const oneMonthAgo = now - 30 * 24 * 60 * 60 * 1000;
+    const monthData = historique.filter(entry => entry && entry.timestamp > oneMonthAgo);
+    
+    if (monthData.length === 0) return [];
+    
+    // Group by week (simplified: every 7 days)
+    const weeklyData: Record<string, { totalPower: number; totalEnergy: number; count: number }> = {};
+    
+    monthData.forEach(entry => {
+      if (!entry || !entry.timestamp) return;
+      const weekNum = Math.floor((entry.timestamp - oneMonthAgo) / (7 * 24 * 60 * 60 * 1000));
+      const weekKey = `Semaine ${weekNum + 1}`;
+      if (!weeklyData[weekKey]) {
+        weeklyData[weekKey] = { totalPower: 0, totalEnergy: 0, count: 0 };
+      }
+      weeklyData[weekKey].totalPower += (entry.puissance || 0);
+      weeklyData[weekKey].totalEnergy += (entry.energie || 0);
+      weeklyData[weekKey].count += 1;
+    });
+    
+    return Object.entries(weeklyData).map(([weekKey, data]) => ({
+      semaine: weekKey,
+      puissance: data.count > 0 ? Math.round(data.totalPower / data.count) : 0,
+      energie: Math.round(data.totalEnergy),
+      cout: Math.round(data.totalEnergy * (userSettings?.tarif_kwh || 0))
+    }));
+  } catch (e) {
+    console.error("Error in getMonthlyData:", e);
+    return [];
+  }
 };
 
 export default function ReportsPage() {
@@ -89,12 +92,11 @@ export default function ReportsPage() {
     );
   }
 
-  const bgClass = userSettings.theme === "sombre" ? "bg-gray-900 text-white" : "bg-white text-gray-900";
   const cardClass = userSettings.theme === "sombre" ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200";
   const textMutedClass = userSettings.theme === "sombre" ? "text-gray-400" : "text-gray-500";
   
-  const weekData = useMemo(() => getWeeklyData(historique, userSettings), [historique, userSettings]);
-  const monthData = useMemo(() => getMonthlyData(historique, userSettings), [historique, userSettings]);
+  const weekData = useMemo(() => getWeeklyData(historique || [], userSettings), [historique, userSettings]);
+  const monthData = useMemo(() => getMonthlyData(historique || [], userSettings), [historique, userSettings]);
   const currentData = period === "week" ? weekData : monthData;
 
   // Calculate totals
@@ -117,13 +119,15 @@ export default function ReportsPage() {
             <p className={`text-lg ${textMutedClass}`}>Analysez votre consommation d'énergie.</p>
           </div>
           
-          <div className="flex gap-2 p-1 rounded-xl bg-gray-800/30 border border-gray-700/30">
+          <div className={`flex gap-2 p-1 rounded-xl ${userSettings.theme === "sombre" ? "bg-gray-800/30 border border-gray-700/30" : "bg-white/30 border border-gray-300/30"}`}>
             <button
               onClick={() => setPeriod("week")}
               className={`px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
                 period === "week"
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                  : `text-gray-400 hover:text-white hover:bg-gray-700/30`
+                  : userSettings.theme === "sombre"
+                  ? "text-gray-400 hover:text-white hover:bg-gray-700/30"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/30"
               }`}
             >
               <Calendar className="inline w-4 h-4 mr-2" />
@@ -134,7 +138,9 @@ export default function ReportsPage() {
               className={`px-6 py-2 rounded-lg font-medium transition-all duration-300 ${
                 period === "month"
                   ? "bg-blue-600 text-white shadow-lg shadow-blue-600/30"
-                  : `text-gray-400 hover:text-white hover:bg-gray-700/30`
+                  : userSettings.theme === "sombre"
+                  ? "text-gray-400 hover:text-white hover:bg-gray-700/30"
+                  : "text-gray-600 hover:text-gray-900 hover:bg-gray-200/30"
               }`}
             >
               <Calendar className="inline w-4 h-4 mr-2" />

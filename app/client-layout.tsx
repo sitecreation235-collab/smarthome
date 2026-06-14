@@ -1,0 +1,92 @@
+"use client";
+
+import "./globals.css";
+import BottomNavigation from "@/components/BottomNavigation";
+import Link from "next/link";
+import { Settings, Languages, Sun, Moon, Home, BarChart3, FileText } from "lucide-react";
+import { useFirebaseData, updateSettings } from "@/lib/hooks";
+import { translations } from "@/lib/i18n";
+import { useEffect } from "react";
+
+export default function ClientLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  const { userSettings } = useFirebaseData();
+  const t = translations[userSettings.language];
+
+  // Apply theme to document
+  useEffect(() => {
+    if (userSettings.theme === "sombre") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+  }, [userSettings.theme]);
+
+  const bgClass = userSettings.theme === "sombre"
+    ? "bg-gradient-to-br from-gray-950 via-gray-900 to-slate-950 text-white"
+    : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50 text-gray-900";
+
+  return (
+    <html lang={userSettings.language}>
+      <body className={`min-h-screen ${bgClass} pb-24 md:pb-0 transition-colors duration-500`}>
+        {/* Desktop Header */}
+        <div className="hidden md:block fixed top-0 left-0 right-0 z-50 bg-gradient-to-r from-gray-900/90 via-gray-800/90 to-gray-900/90 backdrop-blur-3xl border-b border-gray-700/50 px-10 py-5">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <div className="flex items-center gap-10">
+              <Link href="/" className="text-2xl font-bold bg-gradient-to-r from-blue-400 to-indigo-500 bg-clip-text text-transparent">
+                Smart Energy
+              </Link>
+              <div className="flex items-center gap-8">
+                <Link href="/" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                  <Home className="w-5 h-5" />
+                  {t.nav.home}
+                </Link>
+                <Link href="/analytics" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                  <BarChart3 className="w-5 h-5" />
+                  {t.nav.analytics}
+                </Link>
+                <Link href="/reports" className="flex items-center gap-2 text-gray-300 hover:text-blue-300 font-semibold transition-all duration-300">
+                  <FileText className="w-5 h-5" />
+                  {t.nav.reports}
+                </Link>
+              </div>
+            </div>
+            <div className="flex items-center gap-4">
+              {/* Language Switcher */}
+              <button
+                onClick={() => updateSettings("language", userSettings.language === "fr" ? "en" : "fr")}
+                className="p-3 bg-gray-800/50 rounded-2xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-300"
+              >
+                <Languages className="w-6 h-6" />
+              </button>
+              {/* Theme Switcher */}
+              <button
+                onClick={() => updateSettings("theme", userSettings.theme === "sombre" ? "clair" : "sombre")}
+                className="p-3 bg-gray-800/50 rounded-2xl text-gray-300 hover:bg-gray-700/50 hover:text-white transition-all duration-300"
+              >
+                {userSettings.theme === "sombre" ? <Sun className="w-6 h-6" /> : <Moon className="w-6 h-6" />}
+              </button>
+              {/* Settings Link */}
+              <Link
+                href="/settings"
+                className="flex items-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-2xl font-semibold shadow-lg shadow-blue-600/30 hover:shadow-blue-600/40 transition-all duration-300"
+              >
+                <Settings className="w-5 h-5" />
+                {t.nav.settings}
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Padding for desktop header */}
+        <div className="hidden md:block pt-24" />
+
+        {children}
+        <BottomNavigation />
+      </body>
+    </html>
+  );
+}

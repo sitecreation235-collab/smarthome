@@ -75,7 +75,11 @@ export default function Home() {
     let total = etatActuel.puissance;
     ROOMS.forEach(room => {
       room.devices.forEach(device => {
-        if (!device.is_real) {
+        if (device.is_real) {
+          // Pour les tests, ajoutons la puissance des appareils réels si ils sont allumés
+          const deviceOn = getDeviceState(device);
+          if (deviceOn) total += device.power_watts;
+        } else {
           const deviceOn = controles.forces[device.id] ?? device.is_on;
           if (deviceOn) total += device.power_watts;
         }
@@ -187,7 +191,7 @@ export default function Home() {
     } else if (totalPower <= 1500 && showPowerAlert) {
       setShowPowerAlert(false);
     }
-  }, [totalPower, etatActuel, controles, loading]);
+  }, [totalPower, etatActuel, controles, loading, showPowerAlert]);
 
   // Fonction pour obtenir l'état d'un appareil
   const getDeviceState = (device: Device) => {

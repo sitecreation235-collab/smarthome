@@ -8,6 +8,25 @@ import { translations } from "@/lib/i18n";
 import LampNotification from "@/components/LampNotification";
 import PowerAlertNotification from "@/components/PowerAlertNotification";
 
+// Fonction pour envoyer une alerte par email
+const sendAlertEmail = async (subject: string, text: string) => {
+  try {
+    const response = await fetch("/api/send-alert", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ subject, text }),
+    });
+    
+    if (!response.ok) {
+      throw new Error("Erreur API");
+    }
+    
+    console.log("Email d'alerte envoyé avec succès !");
+  } catch (error) {
+    console.error("Erreur lors de l'envoi de l'email:", error);
+  }
+};
+
 // Définition des pièces et appareils
 const ROOMS: Room[] = [
   {
@@ -154,7 +173,7 @@ export default function Home() {
         } else {
           const elapsed = Math.floor((Date.now() - lampOnTimeRef.current[lampDevice.id].startTime) / 1000);
           if (elapsed >= 10 && !lampOnTimeRef.current[lampDevice.id].notified) {
-            // Show notification
+            // Show notification and send email
             lampOnTimeRef.current[lampDevice.id].notified = true;
             setNotification({
               roomId: room.id,
@@ -162,6 +181,10 @@ export default function Home() {
               deviceId: lampDevice.id,
               timeOn: elapsed
             });
+            sendAlertEmail(
+              "🔔 Alerte : Lampe allumée depuis 10 secondes",
+              `Bonjour,\n\nLa lampe du ${room.name} est allumée depuis 10 secondes en mode manuel.\n\nPensez à l'éteindre pour économiser de l'énergie !\n\n- Smart Energy`
+            );
           } else if (notification?.deviceId === lampDevice.id) {
             // Update the time in the notification
             setNotification(prev => prev ? { ...prev, timeOn: elapsed } : null);
@@ -226,6 +249,10 @@ export default function Home() {
     // Check if total power exceeds 1500 W
     if (totalPower > 1500 && active.length > 0 && !showPowerAlert) {
       setShowPowerAlert(true);
+      sendAlertEmail(
+        "⚠️ Alerte : Dépassement de la consommation de puissance",
+        `Bonjour,\n\nVotre consommation totale dépasse 1500 W (actuellement: ${totalPower} W) !\n\nAppareils en cours d'utilisation :\n${active.map((ad) => `- ${ad.device.name} (${ad.roomName}) : ${ad.device.power_watts} W`).join('\n')}\n\nPensez à éteindre certains appareils pour économiser de l'énergie !\n\n- Smart Energy`
+      );
     } else if (totalPower <= 1500 && showPowerAlert) {
       setShowPowerAlert(false);
     }

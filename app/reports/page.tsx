@@ -1,31 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState } from "react";
 import { useFirebaseData } from "@/lib/hooks";
 import { TrendingUp, Calendar, Zap, Wallet } from "lucide-react";
 
-// Hardcoded sample data for testing
-const SAMPLE_WEEK_DATA = [
-  { date: "1/6", puissance: 1200, energie: 5.5, cout: 9625 },
-  { date: "2/6", puissance: 950, energie: 4.2, cout: 7350 },
-  { date: "3/6", puissance: 1400, energie: 6.1, cout: 10675 },
-  { date: "4/6", puissance: 1100, energie: 4.8, cout: 8400 },
-  { date: "5/6", puissance: 850, energie: 3.9, cout: 6825 },
-  { date: "6/6", puissance: 1500, energie: 6.8, cout: 11900 },
-  { date: "7/6", puissance: 1000, energie: 4.5, cout: 7875 },
-];
-
-const SAMPLE_MONTH_DATA = [
-  { semaine: "Semaine 1", puissance: 1050, energie: 30.2, cout: 52850 },
-  { semaine: "Semaine 2", puissance: 1100, energie: 29.8, cout: 52150 },
-  { semaine: "Semaine 3", puissance: 980, energie: 27.5, cout: 48125 },
-  { semaine: "Semaine 4", puissance: 1020, energie: 28.9, cout: 50575 },
-];
-
 export default function ReportsPage() {
-  const { historique, userSettings, loading } = useFirebaseData();
+  const { userSettings, loading } = useFirebaseData();
   const [period, setPeriod] = useState<"week" | "month">("week");
-  const [hasError, setHasError] = useState(false);
 
   if (loading) {
     return (
@@ -40,52 +21,12 @@ export default function ReportsPage() {
 
   const cardClass = userSettings.theme === "sombre" ? "bg-gray-800/50 border-gray-700" : "bg-white border-gray-200";
   const textMutedClass = userSettings.theme === "sombre" ? "text-gray-400" : "text-gray-500";
-  
-  // Use sample data to avoid errors
-  const currentData = period === "week" ? SAMPLE_WEEK_DATA : SAMPLE_MONTH_DATA;
 
-  // Calculate totals
-  const totals = useMemo(() => {
-    if (currentData.length === 0) return { avgPower: 0, totalEnergy: 0, totalCost: 0 };
-    
-    const avgPower = Math.round(currentData.reduce((sum, d) => sum + (d.puissance || 0), 0) / currentData.length);
-    const totalEnergy = currentData.reduce((sum, d) => sum + (d.energie || 0), 0);
-    const totalCost = currentData.reduce((sum, d) => sum + (d.cout || 0), 0);
-    
-    return { avgPower, totalEnergy, totalCost };
-  }, [currentData]);
-
-  // Load Recharts dynamically to avoid SSR issues
-  const [Charts, setCharts] = useState<any>(null);
-  useEffect(() => {
-    import("recharts").then(module => {
-      setCharts(module);
-    }).catch(() => setHasError(true));
-  }, []);
-
-  if (hasError) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-500 ${userSettings.theme === "sombre" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-black" : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50"}`}>
-        <div className="flex flex-col items-center gap-4 text-center">
-          <p className="text-xl text-red-500">Erreur de chargement des graphiques</p>
-          <p className="text-sm text-gray-500">Veuillez recharger la page</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!Charts) {
-    return (
-      <div className={`min-h-screen flex items-center justify-center transition-colors duration-500 ${userSettings.theme === "sombre" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-black" : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50"}`}>
-        <div className="flex flex-col items-center gap-4">
-          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-blue-500 shadow-lg shadow-blue-500/30"></div>
-          <p className={`text-lg font-medium animate-pulse ${userSettings.theme === "sombre" ? "text-blue-300" : "text-blue-600"}`}>Chargement des graphiques...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area, BarChart, Bar } = Charts;
+  const stats = {
+    avgPower: 1050,
+    totalEnergy: 29.5,
+    totalCost: 51625,
+  };
 
   return (
     <div className={`min-h-screen ${userSettings.theme === "sombre" ? "bg-gradient-to-br from-gray-900 via-gray-800 to-black" : "bg-gradient-to-br from-blue-50 via-purple-50 to-indigo-50"} pt-4 md:pt-24 pb-24 md:pb-8 px-4 transition-colors duration-500`}>
@@ -126,7 +67,6 @@ export default function ReportsPage() {
           </div>
         </div>
 
-        {/* Stats cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <div className={`p-6 rounded-2xl border-2 transition-all duration-300 hover:shadow-xl ${cardClass} border-blue-500/30`}>
             <div className="flex items-center gap-3 mb-4">
@@ -135,7 +75,7 @@ export default function ReportsPage() {
               </div>
               <div>
                 <p className={`text-sm ${textMutedClass}`}>Puissance moyenne</p>
-                <h3 className="text-2xl font-bold">{totals.avgPower} W</h3>
+                <h3 className="text-2xl font-bold">{stats.avgPower} W</h3>
               </div>
             </div>
           </div>
@@ -147,7 +87,7 @@ export default function ReportsPage() {
               </div>
               <div>
                 <p className={`text-sm ${textMutedClass}`}>Énergie totale</p>
-                <h3 className="text-2xl font-bold">{totals.totalEnergy} kWh</h3>
+                <h3 className="text-2xl font-bold">{stats.totalEnergy} kWh</h3>
               </div>
             </div>
           </div>
@@ -159,87 +99,20 @@ export default function ReportsPage() {
               </div>
               <div>
                 <p className={`text-sm ${textMutedClass}`}>Coût total</p>
-                <h3 className="text-2xl font-bold">{totals.totalCost.toLocaleString()} FCFA</h3>
+                <h3 className="text-2xl font-bold">{stats.totalCost.toLocaleString()} FCFA</h3>
               </div>
             </div>
           </div>
         </div>
 
-        <div className={`p-6 rounded-3xl border-2 mb-8 ${cardClass}`}>
-          <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Zap className="text-blue-500" />
-            Évolution de la puissance
-          </h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={currentData}>
-                <defs>
-                  <linearGradient id="colorPower" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke={userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"} />
-                <XAxis 
-                  dataKey={period === "week" ? "date" : "semaine"} 
-                  stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
-                />
-                <YAxis 
-                  stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
-                  unit=" W"
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: userSettings.theme === "sombre" ? "#1f2937" : "#ffffff", 
-                    border: `1px solid ${userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"}`,
-                    borderRadius: "12px"
-                  }} 
-                />
-                <Area 
-                  type="monotone" 
-                  dataKey="puissance" 
-                  stroke="#3b82f6" 
-                  strokeWidth={3}
-                  fillOpacity={1} 
-                  fill="url(#colorPower)" 
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </div>
-        </div>
-
         <div className={`p-6 rounded-3xl border-2 ${cardClass}`}>
           <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-            <Wallet className="text-orange-500" />
-            Évolution du coût
+            <Zap className="text-blue-500" />
+            Informations
           </h3>
-          <div className="h-80">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={currentData}>
-                <CartesianGrid strokeDasharray="3 3" stroke={userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"} />
-                <XAxis 
-                  dataKey={period === "week" ? "date" : "semaine"} 
-                  stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
-                />
-                <YAxis 
-                  stroke={userSettings.theme === "sombre" ? "#9ca3af" : "#6b7280"} 
-                  unit=" FCFA"
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    backgroundColor: userSettings.theme === "sombre" ? "#1f2937" : "#ffffff", 
-                    border: `1px solid ${userSettings.theme === "sombre" ? "#374151" : "#e5e7eb"}`,
-                    borderRadius: "12px"
-                  }} 
-                />
-                <Bar 
-                  dataKey="cout" 
-                  fill="#f59e0b" 
-                  radius={[8, 8, 0, 0]} 
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          <p className={textMutedClass}>
+            Les graphiques seront affichés ici lorsque les données seront disponibles.
+          </p>
         </div>
       </div>
     </div>

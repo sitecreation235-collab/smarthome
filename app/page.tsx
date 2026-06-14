@@ -70,6 +70,44 @@ export default function Home() {
   const lampOnTimeRef = useRef<Record<string, { startTime: number; notified: boolean }>>({});
   const t = translations[userSettings.language];
 
+  // Fonction pour obtenir l'état d'un appareil
+  const getDeviceState = (device: Device) => {
+    if (device.is_real) {
+      if (device.type === "lamp") {
+        const roomId = ROOMS.find(r => r.devices.some(d => d.id === device.id))?.id || "salon";
+        return etatActuel.lampes[roomId as keyof typeof etatActuel.lampes];
+      }
+      if (device.type === "ac") {
+        return etatActuel.climatiseur_marche;
+      }
+    }
+    return controles.forces[device.id] ?? device.is_on;
+  };
+
+  // Fonction pour basculer un appareil
+  const toggleDevice = (device: Device) => {
+    if (device.is_real) {
+      if (device.type === "lamp") {
+        const current = controles.forces[device.id] ?? false;
+        updateControles(`forces/${device.id}`, !current);
+        const roomId = ROOMS.find(r => r.devices.some(d => d.id === device.id))?.id || "salon";
+        if (controles.modes[roomId as keyof typeof controles.modes] === "AUTO") {
+          updateControles(`modes/${roomId}`, "MANUEL");
+        }
+      }
+      if (device.type === "ac") {
+        const current = controles.forces.climatiseur ?? false;
+        updateControles(`forces/climatiseur`, !current);
+        if (controles.modes.climatiseur === "AUTO") {
+          updateControles(`modes/climatiseur`, "MANUEL");
+        }
+      }
+    } else {
+      const current = controles.forces[device.id] ?? device.is_on;
+      updateControles(`forces/${device.id}`, !current);
+    }
+  };
+
   // Calcul de la consommation totale (réelle + simulée)
   const calculateTotalPower = () => {
     let total = etatActuel.puissance;
@@ -192,44 +230,6 @@ export default function Home() {
       setShowPowerAlert(false);
     }
   }, [totalPower, etatActuel, controles, loading, showPowerAlert]);
-
-  // Fonction pour obtenir l'état d'un appareil
-  const getDeviceState = (device: Device) => {
-    if (device.is_real) {
-      if (device.type === "lamp") {
-        const roomId = ROOMS.find(r => r.devices.some(d => d.id === device.id))?.id || "salon";
-        return etatActuel.lampes[roomId as keyof typeof etatActuel.lampes];
-      }
-      if (device.type === "ac") {
-        return etatActuel.climatiseur_marche;
-      }
-    }
-    return controles.forces[device.id] ?? device.is_on;
-  };
-
-  // Fonction pour basculer un appareil
-  const toggleDevice = (device: Device) => {
-    if (device.is_real) {
-      if (device.type === "lamp") {
-        const current = controles.forces[device.id] ?? false;
-        updateControles(`forces/${device.id}`, !current);
-        const roomId = ROOMS.find(r => r.devices.some(d => d.id === device.id))?.id || "salon";
-        if (controles.modes[roomId as keyof typeof controles.modes] === "AUTO") {
-          updateControles(`modes/${roomId}`, "MANUEL");
-        }
-      }
-      if (device.type === "ac") {
-        const current = controles.forces.climatiseur ?? false;
-        updateControles(`forces/climatiseur`, !current);
-        if (controles.modes.climatiseur === "AUTO") {
-          updateControles(`modes/climatiseur`, "MANUEL");
-        }
-      }
-    } else {
-      const current = controles.forces[device.id] ?? device.is_on;
-      updateControles(`forces/${device.id}`, !current);
-    }
-  };
 
   // Générer les conseils
   const getTips = () => {

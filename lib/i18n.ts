@@ -81,6 +81,12 @@ export const translations = {
       dailyCost: "Coût quotidien",
       budgetPrediction: "Prédiction budgétaire",
       budgetText: "Votre facture prévisible pour la fin du mois est estimée à :"
+    },
+    notifications: {
+      title: "Alerte",
+      lampOnMessage: "La lampe du {room} est allumée depuis {time}s !",
+      turnOff: "Éteindre la lampe",
+      switchToAuto: "Passer en mode AUTO"
     }
   },
   en: {
@@ -163,6 +169,12 @@ export const translations = {
       dailyCost: "Daily cost",
       budgetPrediction: "Budget prediction",
       budgetText: "Your estimated bill for the end of the month is :"
+    },
+    notifications: {
+      title: "Alert",
+      lampOnMessage: "The {room} lamp has been on for {time}s!",
+      turnOff: "Turn off lamp",
+      switchToAuto: "Switch to AUTO mode"
     }
   }
 };

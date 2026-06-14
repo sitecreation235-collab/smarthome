@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Zap, Droplets, Thermometer, Wifi, WifiOff, Lightbulb, Snowflake, TrendingUp, AlertCircle, LightbulbIcon, Tv, Refrigerator, Microwave, Settings2, Tv2 } from "lucide-react";
 import { useFirebaseData, updateControles } from "@/lib/hooks";
 import { Room, Device } from "@/lib/types";
 import { translations } from "@/lib/i18n";
+import LampNotification from "@/components/LampNotification";
 
 // Définition des pièces et appareils
 const ROOMS: Room[] = [
@@ -46,10 +47,19 @@ const ROOMS: Room[] = [
   }
 ];
 
+interface NotificationData {
+  roomId: string;
+  roomName: string;
+  deviceId: string;
+  timeOn: number;
+}
+
 export default function Home() {
   const { etatActuel, controles, userSettings, loading } = useFirebaseData();
   const [isOnline, setIsOnline] = useState(false);
   const [activeTab, setActiveTab] = useState("salon");
+  const [notification, setNotification] = useState<NotificationData | null>(null);
+  const lampOnTimeRef = useRef<Record<string, { startTime: number; notified: boolean }>>({});
   const t = translations[userSettings.language];
 
   useEffect(() => {
@@ -58,6 +68,77 @@ export default function Home() {
       setIsOnline(now - etatActuel.last_seen < 60);
     }
   }, [etatActuel]);
+
+  useEffect(() => {
+    if (loading) return;
+
+    // Check all lamps
+    ROOMS.forEach((room) => {
+      const lampDevice = room.devices.find((d) => d.type === "lamp" && d.is_real);
+      if (!lampDevice) return;
+
+      const isLampOn = getDeviceState(lampDevice);
+      const mode = controles.modes[room.id as keyof typeof controles.modes];
+
+      if (isLampOn && mode === "MANUEL") {
+        // Lamp is on and in manual mode
+        if (!lampOnTimeRef.current[lampDevice.id]) {
+          lampOnTimeRef.current[lampDevice.id] = { startTime: Date.now(), notified: false };
+        } else {
+          const elapsed = Math.floor((Date.now() - lampOnTimeRef.current[lampDevice.id].startTime) / 1000);
+          if (elapsed >= 10 && !lampOnTimeRef.current[lampDevice.id].notified) {
+            // Show notification
+            lampOnTimeRef.current[lampDevice.id].notified = true;
+            setNotification({
+              roomId: room.id,
+              roomName: room.name,
+              deviceId: lampDevice.id,
+              timeOn: elapsed
+            });
+          } else if (notification?.deviceId === lampDevice.id) {
+            // Update the time in the notification
+            setNotification(prev => prev ? { ...prev, timeOn: elapsed } : null);
+          }
+        }
+      } else {
+        // Lamp is off or not in manual mode
+        if (lampOnTimeRef.current[lampDevice.id]) {
+          delete lampOnTimeRef.current[lampDevice.id];
+        }
+        if (notification?.deviceId === lampDevice.id) {
+          setNotification(null);
+        }
+      }
+    });
+
+    // Set up interval to check elapsed time
+    const intervalId = setInterval(() => {
+      ROOMS.forEach((room) => {
+        const lampDevice = room.devices.find((d) => d.type === "lamp" && d.is_real);
+        if (!lampDevice) return;
+
+        const isLampOn = getDeviceState(lampDevice);
+        const mode = controles.modes[room.id as keyof typeof controles.modes];
+
+        if (isLampOn && mode === "MANUEL" && lampOnTimeRef.current[lampDevice.id]) {
+          const elapsed = Math.floor((Date.now() - lampOnTimeRef.current[lampDevice.id].startTime) / 1000);
+          if (elapsed >= 10 && !lampOnTimeRef.current[lampDevice.id].notified) {
+            lampOnTimeRef.current[lampDevice.id].notified = true;
+            setNotification({
+              roomId: room.id,
+              roomName: room.name,
+              deviceId: lampDevice.id,
+              timeOn: elapsed
+            });
+          } else if (elapsed >= 10 && notification?.deviceId === lampDevice.id) {
+            setNotification(prev => prev ? { ...prev, timeOn: elapsed } : null);
+          }
+        }
+      });
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [etatActuel, controles, loading, notification]);
 
   // Calcul de la consommation totale (réelle + simulée)
   const calculateTotalPower = () => {
@@ -151,7 +232,12 @@ export default function Home() {
   const textMutedClass = userSettings.theme === "sombre" ? "text-gray-300" : "text-gray-600";
 
   return (
-    <div className="p-4 md:p-8 max-w-7xl mx-auto">
+    <>
+      <LampNotification 
+        notification={notification} 
+        onClose={() => setNotification(null)} 
+      />
+      <div className="p-4 md:p-8 max-w-7xl mx-auto">
       {/* Header */}
       <header className="mb-8 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="space-y-2">
@@ -400,6 +486,7 @@ export default function Home() {
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

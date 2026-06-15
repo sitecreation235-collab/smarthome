@@ -1,4 +1,4 @@
-import { initializeApp } from "firebase/app";
+import { initializeApp, getApps } from "firebase/app";
 import { getDatabase } from "firebase/database";
 
 const firebaseConfig = {
@@ -11,6 +11,6 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase for server-side
-const app = initializeApp(firebaseConfig, "server");
+// Initialize Firebase for server-side only if not already initialized
+const app = getApps().find(app => app.name === "server") || initializeApp(firebaseConfig, "server");
 export const db = getDatabase(app);

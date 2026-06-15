@@ -65,17 +65,25 @@ export async function POST(request: NextRequest) {
 
     // Fetch all users from Firebase
     const usersRef = ref(db, "users");
+    console.log("Fetching users from Firebase at", process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL);
     const snapshot = await get(usersRef);
+    console.log("Snapshot exists?", snapshot.exists());
+    
     let recipients: string[] = [];
     
     if (snapshot.exists()) {
       const usersData = snapshot.val();
+      console.log("Users data from Firebase:", usersData);
       recipients = Object.values(usersData).map((user: any) => user.email).filter(Boolean);
+      console.log("Extracted recipients:", recipients);
+    } else {
+      console.log("No users found in Firebase database!");
     }
     
     // Fallback to provided "to" or default if no users found
     if (recipients.length === 0) {
       recipients = to ? [to] : ["sitecreation235@gmail.com"];
+      console.log("Using fallback recipients:", recipients);
     }
 
     const mailOptions = {

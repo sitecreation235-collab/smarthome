@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Zap, Lightbulb, Thermometer, Wind, TrendingUp, ArrowRight, Lock, Unlock, Mail, User, Eye, EyeOff } from "lucide-react";
 import { useFirebaseData } from "@/lib/hooks";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { ref, set } from "firebase/database";
+import { auth, db } from "@/lib/firebase";
 
 // Liste des astuces d'économie d'énergie
 const ENERGY_TIPS = [
@@ -41,7 +42,13 @@ export default function LandingPage() {
       if (isLogin) {
         await signInWithEmailAndPassword(auth, email, password);
       } else {
-        await createUserWithEmailAndPassword(auth, email, password);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+        // Save user data to Realtime Database
+        await set(ref(db, `users/${user.uid}`), {
+          email: user.email,
+          createdAt: Date.now()
+        });
       }
       router.push("/");
     } catch (err: any) {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import nodemailer from "nodemailer";
+import { ref, get } from "firebase/database";
+import { db } from "@/lib/firebase-server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -61,9 +63,24 @@ export async function POST(request: NextRequest) {
       </html>
     `;
 
+    // Fetch all users from Firebase
+    const usersRef = ref(db, "users");
+    const snapshot = await get(usersRef);
+    let recipients: string[] = [];
+    
+    if (snapshot.exists()) {
+      const usersData = snapshot.val();
+      recipients = Object.values(usersData).map((user: any) => user.email).filter(Boolean);
+    }
+    
+    // Fallback to provided "to" or default if no users found
+    if (recipients.length === 0) {
+      recipients = to ? [to] : ["sitecreation235@gmail.com"];
+    }
+
     const mailOptions = {
       from: "Smart Energy <sitecreation235@gmail.com>",
-      to: to || "sitecreation235@gmail.com",
+      to: recipients,
       subject,
       text,
       html: defaultHtml,
@@ -71,7 +88,7 @@ export async function POST(request: NextRequest) {
 
     await transporter.sendMail(mailOptions);
 
-    return NextResponse.json({ success: true }, { status: 200 });
+    return NextResponse.json({ success: true, sentTo: recipients }, { status: 200 });
   } catch (error: any) {
     console.error("Erreur d'envoi d'email:", error);
     return NextResponse.json(

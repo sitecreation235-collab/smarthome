@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ref, onValue, update, get, push } from "firebase/database";
+import { ref, onValue, update, get, push, set } from "firebase/database";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { db, auth } from "./firebase";
 import type { EtatActuel, Controles, HistoriqueEntry, UserSettings, AlertHistoryEntry } from "./types";
@@ -165,8 +165,23 @@ export function useFirebaseData() {
 
   useEffect(() => {
     // Écouter les changements d'authentification
-    const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
+    const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
       setUser(user);
+      
+      if (user) {
+        // Vérifier si l'utilisateur existe dans la Realtime Database
+        const userRef = ref(db, `users/${user.uid}`);
+        const userSnap = await get(userRef);
+        
+        if (!userSnap.exists()) {
+          // Ajouter l'utilisateur s'il n'existe pas
+          await set(userRef, {
+            email: user.email,
+            createdAt: Date.now()
+          });
+          console.log("Utilisateur existant ajouté à la base de données:", user.email);
+        }
+      }
     });
 
     // Initialiser les données Firebase d'abord

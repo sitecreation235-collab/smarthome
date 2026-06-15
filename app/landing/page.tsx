@@ -40,15 +40,21 @@ export default function LandingPage() {
     setLoading(true);
     try {
       if (isLogin) {
+        console.log("Logging in...");
         await signInWithEmailAndPassword(auth, email, password);
+        console.log("Logged in successfully!");
       } else {
+        console.log("Creating user...");
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
+        console.log("User created:", user.uid, user.email);
+        console.log("Saving user to Firebase Realtime Database...");
         // Save user data to Realtime Database
         await set(ref(db, `users/${user.uid}`), {
           email: user.email,
           createdAt: Date.now()
         });
+        console.log("User saved to database successfully!");
       }
       router.push("/");
     } catch (err: any) {
